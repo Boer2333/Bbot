@@ -33,7 +33,7 @@ const saveToCSV = async (wallets) => {
 
 const main = async () => {
     try {
-        const walletCount = 10; // 更改这个数字以生成不同数量的钱包
+        const walletCount = 20; // 更改这个数字以生成不同数量的钱包
         const wallets = await generateWallets(walletCount);
         await saveToCSV(wallets);
 
