@@ -1,0 +1,29 @@
+{
+  "type": "module",
+  "dependencies": {
+    "@solana/web3.js": "^1.98.0",
+    "axios": "^1.7.8",
+    "bip39": "^3.1.0",
+    "bs58": "^6.0.0",
+    "chalk": "^4.1.2",
+    "csv-parse": "^5.6.0",
+    "csv-parser": "^3.0.0",
+    "csv-stringify": "^6.5.2",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.4.7",
+    "ed25519-hd-key": "^1.3.0",
+    "ethers": "^6.13.4",
+    "https-proxy-agent": "^7.0.5",
+    "keccak256": "^1.0.6",
+    "mailparser": "^3.7.2",
+    "merkletreejs": "^0.4.1",
+    "moment": "^2.30.1",
+    "node-imap": "^0.9.6",
+    "p-limit": "^6.2.0",
+    "socks-proxy-agent": "^8.0.4",
+    "tweetnacl": "^1.0.3",
+    "web3": "^4.16.0",
+    "winston": "^3.17.0",
+    "xlsx": "^0.18.5"
+  }
+}
