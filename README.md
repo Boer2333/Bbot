@@ -1,12 +1,5 @@
 # ░▒▓███████▓▒░ B B O T ░▒▓███████▓▒░
 
-<div align="center">
-  
-[![Node.js](https://img.shields.io/badge/Node->=18.x-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/zh-cn)
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
-[![VSCode](https://img.shields.io/badge/IDE-VSCode-007ACC?logo=visualstudiocode)](https://code.visualstudio.com/)
-
-</div>
 
 ---
 使用脚本基础的框架构建指南
