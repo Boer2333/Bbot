@@ -1,6 +1,3 @@
-## 
-🚀 **本地生成EVM地址工具**  
-
 import { ethers } from 'ethers';
 import { createObjectCsvWriter } from 'csv-writer';
 
