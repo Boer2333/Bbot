@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { getRandomUserAgent } from './http.js';
 
+
+
 const apiKey = ''; //2captcha key   链接：https://2captcha.com/enterpage
 const clientKey = ''; //YesCaptcha key    注册邀请链接：https://yescaptcha.com/i/tMUjif
 
