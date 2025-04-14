@@ -13,7 +13,24 @@ vsc : https://code.visualstudio.com/
 
 python : https://www.python.org/downloads/
 
-
+##结构拓扑图：
+```
+📁bbot/  #一层文件夹，桌面或者随机盘新建文件夹命名为bbot
+├──  📄 package.json          #  所需依赖列表
+├──  📄 http.js           # 通用模块，经常更新。配置好的使用代理随机请求头的请求方法
+├──  📄 jiema.js          # 通用模块，经常更新。解码模块，用于解决各项目验证码步骤
+├──  📄 imap.js           # 通用模块，经常更新。接码模块，用于接收填写验证码
+├──  📄 xauth.js           # 通用模块，经常更新。X认证模块，用于授权
+├── 📁 项目1文件夹/   #看项目而定，自行命名
+│      ├── wallet.csv  #钱包配置文件
+│      ├── 脚本1.js  
+│      └── 脚本2.js
+├── 📁 项目2文件夹/  #看项目而定，自行命名
+│      ├── wallet.csv   #钱包配置文件
+│      ├── 脚本1.js
+│      └──脚本2.js
+└── 📁node_modules/         # 项目依赖（通过 npm install安装）
+```
 
 ![image](https://github.com/user-attachments/assets/c7139af1-747c-4e4b-8514-904f19abbf09)
 
