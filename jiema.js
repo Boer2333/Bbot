@@ -5,6 +5,83 @@ import { getRandomUserAgent } from './http.js';
 
 const apiKey = ''; //2captcha key   链接：https://2captcha.com/enterpage
 const clientKey = ''; //YesCaptcha key    注册邀请链接：https://yescaptcha.com/i/tMUjif
+const noCaptchaKey = ''; // NoCaptcha key  注册邀请链接：https://www.nocaptcha.io/register?c=b34WtG
+
+async function solveWithNoCaptcha(options = {}) {
+    const {
+        type = 'enterprise', // 默认使用通用版: 'universal', 'enterprise', 'steam'
+        sitekey = '',       // reCAPTCHA的site key
+        referer = '',       // 触发页面的完整URL
+        size = 'invisible', // 验证类型: 'invisible'或'normal'
+        title = '',         // 页面标题
+        action = '',        // v3需要的action值
+        proxy = '',         // 代理设置
+        ubd = false,        // 特殊的ubd类型路由
+        s = '',             // steam的s值
+        sa = ''             // 企业版可能需要的sa值
+    } = options;
+
+    // 验证必须参数
+    if (!sitekey) throw new Error('缺少必要参数: sitekey');
+    if (!referer) throw new Error('缺少必要参数: referer');
+    if (!size) throw new Error('缺少必要参数: size');
+    if (!title) throw new Error('缺少必要参数: title');
+
+    // 确定API类型对应的URL
+    const apiUrls = {
+        'universal': 'http://api.nocaptcha.io/api/wanda/recaptcha/universal',
+        'enterprise': 'http://api.nocaptcha.io/api/wanda/recaptcha/enterprise',
+        'steam': 'http://api.nocaptcha.io/api/wanda/recaptcha/steam'
+    };
+
+    if (!apiUrls[type]) {
+        throw new Error(`未知的NoCaptcha API类型: ${type}`);
+    }
+
+    // 构建请求头
+    const headers = {
+        'User-Token': noCaptchaKey,
+        'Content-Type': 'application/json'
+    };
+
+    // 构建请求体
+    const requestData = {
+        sitekey: sitekey,
+        referer: referer,
+        size: size,
+        title: title
+    };
+
+    // 添加可选参数
+    if (action) requestData.action = action;
+    if (proxy) requestData.proxy = proxy;
+    if (ubd) requestData.ubd = ubd;
+    if (s) requestData.s = s;
+    if (sa) requestData.sa = sa;
+
+    try {
+        const response = await axios.post(apiUrls[type], requestData, { headers });
+        
+        if (response.data.status === 0) {
+            throw new Error(`NoCaptcha错误: ${response.data.msg || JSON.stringify(response.data)}`);
+        }
+        
+        if (!response.data.data || !response.data.data.token) {
+            throw new Error('NoCaptcha未返回token值或token位置不正确');
+        }
+        
+        return response.data.data.token;
+    } catch (error) {
+        console.error('[NoCaptcha] 验证码解析失败:', error.message);
+        
+        // 更详细的错误信息
+        if (error.response) {
+            console.error('[NoCaptcha] 服务器响应:', JSON.stringify(error.response.data, null, 2));
+        }
+        
+        throw error;
+    }
+}
 
 async function solveWithYesCaptcha(proxy, pageUrl, options = {}) {
     const {
@@ -45,18 +122,14 @@ async function solveWithYesCaptcha(proxy, pageUrl, options = {}) {
             userAgent: userAgent
         },
         // ReCaptcha V3 配置
-        'RecaptchaV3Task': {
-            type: "RecaptchaV3Task",
+        'RecaptchaV3TaskProxyless': {
+            type: "RecaptchaV3TaskProxyless",
             websiteURL: pageUrl,
-            websiteKey: siteKey,
-            pageAction: action,
-            minScore: minScore,
-            proxy: proxy,
-            userAgent: userAgent
+            websiteKey: siteKey
         },
         // ReCaptcha V3 Enterprise 配置
-        'RecaptchaV3EnterpriseTask': {
-            type: "RecaptchaV3EnterpriseTask",
+        'RecaptchaV3TaskProxylessM1': {
+            type: "RecaptchaV3TaskProxylessM1",
             websiteURL: pageUrl,
             websiteKey: siteKey,
             pageAction: action,
@@ -135,7 +208,7 @@ async function solve2CaptchaV2({
   siteKey, // 必填: 网站密钥
   pageUrl, // 必填: 页面URL
   action = '', // 可选: recaptcha v3 action
-  minScore = 0.3, // 可选: recaptcha v3 最低分数
+  minScore = 0.7, // 可选: recaptcha v3 最低分数
   proxy = '', // 可选: 代理
   userAgent = '', // 可选: UA
   enterprisePayload = {}, // 可选: Enterprise额外参数
@@ -144,57 +217,44 @@ async function solve2CaptchaV2({
 }) {
   // 根据不同类型配置任务参数
   const taskConfigs = {
-      // Turnstile配置
-      'turnstile': {
-          type: 'TurnstileTaskProxyless',
-          websiteURL: pageUrl,
-          websiteKey: siteKey
-      },
-      
-      // ReCaptcha V2配置
-      'recaptcha2': {
-          type: 'RecaptchaV2TaskProxyless',
-          websiteURL: pageUrl,
-          websiteKey: siteKey,
-          ...(action && { action }),  // 如果有action参数就添加
-          ...enterprisePayload  // 添加其他任何额外参数
-      },
-      
-      // ReCaptcha V3配置
-      'recaptcha3': {
-          type: 'RecaptchaV3TaskProxyless',
-          websiteURL: pageUrl,
-          websiteKey: siteKey,
-          minScore: minScore
-      },
-      
-      // ReCaptcha V3 Enterprise配置
-      'recaptcha3_enterprise': {
-          type: 'RecaptchaV3EnterpriseTaskProxyless',
-          websiteURL: pageUrl,
-          websiteKey: siteKey,
-          minScore: minScore,
-          enterprisePayload: {
-              action: action,
-              ...enterprisePayload
-          }
-      }
+    // Turnstile配置
+    'turnstile': {
+        type: 'TurnstileTaskProxyless',
+        websiteURL: pageUrl,
+        websiteKey: siteKey
+    },
+    
+    // ReCaptcha V2配置
+    'recaptcha2': {
+        type: 'RecaptchaV2TaskProxyless',
+        websiteURL: pageUrl,
+        websiteKey: siteKey,
+        ...(action && { action }),  // 如果有action参数就添加
+        ...enterprisePayload  // 添加其他任何额外参数
+    },
+
+    'recaptcha2_enterprise': {
+    type: 'RecaptchaV2EnterpriseTaskProxyless',
+    websiteURL: pageUrl,
+    websiteKey: siteKey,
+    isInvisible:true
+    },
+    
+    // ReCaptcha V3配置
+    'recaptcha3': {
+        type: 'RecaptchaV3TaskProxyless',
+        websiteURL: pageUrl,
+        websiteKey: siteKey,
+        minScore: minScore,
+        pageAction: action,
+        isEnterprise: true
+
+    }
   };
 
   const taskConfig = taskConfigs[type];
   if (!taskConfig) {
       throw new Error(`不支持的验证码类型: ${type}`);
-  }
-
-  // 如果提供了代理，添加代理配置
-  if (proxy) {
-      const [proxyIp, proxyPort, proxyUsername, proxyPassword] = proxy.split(':');
-      taskConfig.proxy = {
-          type: 'http',
-          uri: `${proxyUsername}:${proxyPassword}@${proxyIp}:${proxyPort}`
-      };
-      // 修改任务类型为带代理版本
-      taskConfig.type = taskConfig.type.replace('Proxyless', '');
   }
 
   // 如果提供了UA，添加UA配置
@@ -270,28 +330,11 @@ async function solveTurnstile(siteKey, pageUrl, maxRetries = 5, retryDelay = 300
   }
 }
 
-// 新增Enterprise方法
-async function solveRecaptchaEnterprise(siteKey, pageUrl, action = 'waiting_contact_email', maxRetries = 5, retryDelay = 3000) {
-  try {
-      return await solve2CaptchaV2({
-          type: 'recaptcha3_enterprise',
-          siteKey,
-          pageUrl,
-          action,
-          maxRetries,
-          retryDelay
-      });
-  } catch (error) {
-      console.error('Enterprise解码失败:', error);
-      throw error;
-  }
-}
-
 export {
   solveWithYesCaptcha,
+  solveWithNoCaptcha,
   solveTurnstile,
-  solveRecaptchaEnterprise,
-  solve2CaptchaV2 
+  solve2CaptchaV2
 };
 
 export default solveTurnstile;
