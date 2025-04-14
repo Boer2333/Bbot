@@ -13,7 +13,7 @@ vsc : https://code.visualstudio.com/
 
 python : https://www.python.org/downloads/
 
-##结构拓扑图：
+结构拓扑图：
 ```
 📁bbot/  #一层文件夹，桌面或者随机盘新建文件夹命名为bbot
 ├──  📄 package.json          #  所需依赖列表
@@ -31,8 +31,6 @@ python : https://www.python.org/downloads/
 │      └──脚本2.js
 └── 📁node_modules/         # 项目依赖（通过 npm install安装）
 ```
-
-![image](https://github.com/user-attachments/assets/c7139af1-747c-4e4b-8514-904f19abbf09)
 
 
 下载后直接BBOT文件夹内终端运行命令npm install 安装目录内所有依赖，均是官方大众验证的库，可以找GPT自行验证。
