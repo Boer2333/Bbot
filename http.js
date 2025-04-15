@@ -15,7 +15,10 @@ class RequestManager {
         'Sec-Ch-Ua': `"Google Chrome";v="${chromeVersion}", "Not=A?Brand";v="8", "Chromium";v="${chromeVersion}"`,
         'Sec-Ch-Ua-Mobile': '?0',
         'User-Agent': userAgent,
-        'Accept-Language': getRandomAcceptLanguage()
+        'Accept-Language': getRandomAcceptLanguage(),
+        'Sec-Fetch-Site': 'cross-site',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Dest': 'empty',
       };
     } else {
       // 如果没传入，使用随机生成的 headers
@@ -24,15 +27,18 @@ class RequestManager {
     this.axiosInstance = this.createAxiosInstance();
   }
   createAxiosInstance() {
-    let agent = null;
+    let httpsAgent = null;
+    let httpAgent = null;
     
     if (this.proxy) {
       try {
         // 检查是否是 socks 代理
         if (this.proxy.startsWith('socks')) {
-          agent = new SocksProxyAgent(this.proxy);
+          httpsAgent = new SocksProxyAgent(this.proxy);
+          httpAgent = new SocksProxyAgent(this.proxy);
         } else {
-          agent = new HttpsProxyAgent(this.proxy);
+          httpsAgent = new HttpsProxyAgent(this.proxy);
+          httpAgent = new HttpsProxyAgent(this.proxy);
         }
       } catch (error) {
         throw error;
@@ -40,9 +46,12 @@ class RequestManager {
     }
     
     return axios.create({
-      agent: agent,
+      httpAgent: httpAgent,
+      httpsAgent: httpsAgent,
       headers: this.baseHeaders,
-      timeout: 60000
+      timeout: 60000,
+      proxy: false,
+      maxRedirects: 5
     });
   }
 
@@ -133,7 +142,7 @@ function createProxyAxios(proxy = null) {
 }
 
 function getRandomChromeVersion() {
-  return Math.floor(Math.random() * (133 - 128 + 1) + 128).toString();
+  return Math.floor(Math.random() * (135 - 132 + 1) + 132).toString();
 }
 
 function getRandomValue(array) {
