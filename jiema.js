@@ -1,11 +1,9 @@
 import axios from 'axios';
 import { getRandomUserAgent } from './http.js';
 
-
-
-const apiKey = ''; //2captcha key   链接：https://2captcha.com/enterpage
-const clientKey = ''; //YesCaptcha key    注册邀请链接：https://yescaptcha.com/i/tMUjif
-const noCaptchaKey = ''; // NoCaptcha key  注册邀请链接：https://www.nocaptcha.io/register?c=b34WtG
+const apiKey = ''; //2captcha key   注册链接：https://2captcha.com/enterpage
+const clientKey = ''; //YesCaptcha key    注册链接：https://yescaptcha.com/i/tMUjif
+const noCaptchaKey = ''; // NoCaptcha key，  注册链接：https://www.nocaptcha.io/register?c=b34WtG
 
 async function solveWithNoCaptcha(options = {}) {
     const {
@@ -88,54 +86,52 @@ async function solveWithYesCaptcha(proxy, pageUrl, options = {}) {
         type = 'CloudFlareTaskS2', // 默认使用原来的 CloudFlare 类型
         siteKey = '',
         action = '',
-        minScore = 0.3,
         userAgent = getRandomUserAgent(),
         rqdata = ''
     } = options;
 
     console.log('开始创建YesCaptcha任务...');
 
-    // 定义不同类型验证码的任务配置
     const taskConfigs = {
-        // 原有的 CloudFlare 配置
-        'CloudFlareTaskS2': {
-            type: "CloudFlareTaskS2",
+        // CloudFlare 配置
+        'CloudFlareTask': {
+            type: "CloudFlareTaskS3",
             websiteURL: pageUrl,
             proxy: proxy,
-            requiredCookies: ["cf_clearance"],
-            userAgent: userAgent
+            requiredCookies: ["cf_clearance"]
         },
         // Turnstile 配置
         'TurnstileTask': {
-            type: "TurnstileTask",
-            websiteURL: pageUrl,
-            websiteKey: siteKey,
-            proxy: proxy,
-            userAgent: userAgent
-        },
-        // ReCaptcha V2 配置
-        'RecaptchaV2Task': {
-            type: "RecaptchaV2Task",
-            websiteURL: pageUrl,
-            websiteKey: siteKey,
-            proxy: proxy,
-            userAgent: userAgent
-        },
-        // ReCaptcha V3 配置
-        'RecaptchaV3TaskProxyless': {
-            type: "RecaptchaV3TaskProxyless",
+            type: "TurnstileTaskProxyless",
             websiteURL: pageUrl,
             websiteKey: siteKey
         },
+        // ReCaptcha V2 配置
+        'Recaptchav2': {
+            type: "RecaptchaV2TaskProxyless",
+            websiteURL: pageUrl,
+            websiteKey: siteKey
+        },
+        // ReCaptcha V3 配置
+        'Recaptchav3': {
+            type: "RecaptchaV3TaskProxyless",
+            websiteURL: pageUrl,
+            websiteKey: siteKey,
+            pageAction:action
+        },
         // ReCaptcha V3 Enterprise 配置
-        'RecaptchaV3TaskProxylessM1': {
+        'Recaptchav3M1': {
             type: "RecaptchaV3TaskProxylessM1",
             websiteURL: pageUrl,
             websiteKey: siteKey,
-            pageAction: action,
-            minScore: minScore,
-            proxy: proxy,
-            userAgent: userAgent
+            pageAction: action
+        },
+        // ReCaptcha V3 Enterprise 配置
+        'RecaptchaV3K1': {
+            type: "RecaptchaV3TaskProxyLessK1",
+            websiteURL: pageUrl,
+            websiteKey: siteKey,
+            pageAction: action
         },
         // hCaptcha 配置
         'HCaptchaTask': {
@@ -178,7 +174,7 @@ async function solveWithYesCaptcha(proxy, pageUrl, options = {}) {
             });
 
             if (resultResponse.data.status === 'ready') {
-                // 根据不同类型返回对应的结果
+                // 根据不同类型返回对应的结果,调用处获取验证码应为response.solution.gRecaptchaResponse
                 if (type === 'CloudFlareTaskS2') {
                     // 原有的 CloudFlare 结果处理
                     if (!resultResponse.data.solution?.cookies?.cf_clearance) {
@@ -204,16 +200,15 @@ async function solveWithYesCaptcha(proxy, pageUrl, options = {}) {
 }
 
 async function solve2CaptchaV2({
-  type, // 必填: 验证码类型
-  siteKey, // 必填: 网站密钥
-  pageUrl, // 必填: 页面URL
-  action = '', // 可选: recaptcha v3 action
-  minScore = 0.7, // 可选: recaptcha v3 最低分数
-  proxy = '', // 可选: 代理
-  userAgent = '', // 可选: UA
-  enterprisePayload = {}, // 可选: Enterprise额外参数
+  type, 
+  siteKey, 
+  pageUrl, 
+  action = '', 
+  minScore = 0.3, 
   maxRetries = 5,
-  retryDelay = 3000
+  retryDelay = 3000,
+  isInvisible = false,
+  isEnterprise = false
 }) {
   // 根据不同类型配置任务参数
   const taskConfigs = {
@@ -228,16 +223,14 @@ async function solve2CaptchaV2({
     'recaptcha2': {
         type: 'RecaptchaV2TaskProxyless',
         websiteURL: pageUrl,
-        websiteKey: siteKey,
-        ...(action && { action }),  // 如果有action参数就添加
-        ...enterprisePayload  // 添加其他任何额外参数
+        websiteKey: siteKey
     },
 
     'recaptcha2_enterprise': {
     type: 'RecaptchaV2EnterpriseTaskProxyless',
     websiteURL: pageUrl,
     websiteKey: siteKey,
-    isInvisible:true
+    isInvisible:isInvisible
     },
     
     // ReCaptcha V3配置
@@ -247,7 +240,7 @@ async function solve2CaptchaV2({
         websiteKey: siteKey,
         minScore: minScore,
         pageAction: action,
-        isEnterprise: true
+        isEnterprise: isEnterprise
 
     }
   };
@@ -257,10 +250,6 @@ async function solve2CaptchaV2({
       throw new Error(`不支持的验证码类型: ${type}`);
   }
 
-  // 如果提供了UA，添加UA配置
-  if (userAgent) {
-      taskConfig.userAgent = userAgent;
-  }
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -292,7 +281,8 @@ async function solve2CaptchaV2({
 
               if (resultResponse.data.status === 'ready') {
                   console.log("[验证] 成功获取token");
-                  return resultResponse.data.solution.token;
+                  //直接返回了解码结果
+                  return resultResponse.data.solution.gRecaptchaResponse;
               }
 
               if (resultResponse.data.status === 'processing') {
@@ -314,26 +304,9 @@ async function solve2CaptchaV2({
   }
 }
 
-// 保持原有方法的兼容性
-async function solveTurnstile(siteKey, pageUrl, maxRetries = 5, retryDelay = 3000) {
-  try {
-      return await solve2CaptchaV2({
-          type: 'turnstile',
-          siteKey,
-          pageUrl,
-          maxRetries,
-          retryDelay
-      });
-  } catch (error) {
-      console.error('Turnstile解码失败:', error);
-      throw error;
-  }
-}
-
 export {
   solveWithYesCaptcha,
   solveWithNoCaptcha,
-  solveTurnstile,
   solve2CaptchaV2
 };
 
