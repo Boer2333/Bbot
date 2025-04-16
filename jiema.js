@@ -310,6 +310,6 @@ export {
   solve2CaptchaV2
 };
 
-export default solveTurnstile;
+export default solveWithYesCaptcha;
 
 
