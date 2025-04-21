@@ -83,7 +83,7 @@ async function solveWithNoCaptcha(options = {}) {
 
 async function solveWithYesCaptcha(proxy, pageUrl, options = {}) {
     const {
-        type = 'CloudFlareTaskS2', // 默认使用原来的 CloudFlare 类型
+        type = 'CloudFlareTask', // 默认使用原来的 CloudFlare 类型
         siteKey = '',
         action = '',
         userAgent = getRandomUserAgent(),
@@ -175,7 +175,7 @@ async function solveWithYesCaptcha(proxy, pageUrl, options = {}) {
 
             if (resultResponse.data.status === 'ready') {
                 // 根据不同类型返回对应的结果,调用处获取验证码应为response.solution.gRecaptchaResponse
-                if (type === 'CloudFlareTaskS2') {
+                if (type === 'CloudFlareTask') {
                     // 原有的 CloudFlare 结果处理
                     if (!resultResponse.data.solution?.cookies?.cf_clearance) {
                         throw new Error('无解码cookie');
