@@ -32,12 +32,15 @@ class EmailReader {
                 /token=([^&\s]+)/i
             ],
             codePatterns: [
+                /(?:code|verification code)[:：]?\s*(\d{6})/i,
+                /(?:enter|use)\s+(?:the\s+)?code\s*[:：]?\s*(\d{6})/i,
+                // 原有模式保留
                 /(\d{6})/,
                 /验证码[：:]\s*(\d{6})/,
-                /verification code[：:]\s*(\d{6})/i, // 英文格式
-                /code[：:]\s*(\d{6})/i, // 简短英文格式
-                /[\[\(（]\s*(\d{6})\s*[\]\)）]/, // 括号包围的6位数字
-                /^[\s]*(\d{6})[\s]*$/m // 独立行的6位数字
+                /verification code[：:]\s*(\d{6})/i,
+                /code[：:]\s*(\d{6})/i,
+                /[\[\(（]\s*(\d{6})\s*[\]\)）]/,
+                /^[\s]*(\d{6})[\s]*$/m
             ],
             
             get codeLength() {
@@ -168,6 +171,22 @@ class EmailReader {
     }
 
     extractVerificationCode(message) {
+
+        const preprocessText = (text) => {
+            return text.replace(/\s+/g, ' ').trim();
+        };
+        // 优先检查纯文本内容（英文邮件通常在这里）
+        if (message.text) {
+            const cleanText = preprocessText(message.text);
+            console.log('[调试] 纯文本内容:', cleanText); // 调试日志
+            
+            // 新增：直接搜索6位数字（更宽松的匹配）
+            const looseMatch = cleanText.match(/\b\d{6}\b/);
+            if (looseMatch) {
+                console.log('[宽松匹配] 找到6位数字:', looseMatch[0]);
+                return looseMatch[0];
+            }
+        }
     
         const patterns = this.codeConfig.mode === 'token' 
             ? this.codeConfig.tokenPatterns 
