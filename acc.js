@@ -19,11 +19,13 @@ const loadAccounts = (filePath, number = null) => {
 
         for (const record of records) {
             if (record.add) {
+                const convertedProxy = record.proxy ? convertProxyFormat(record.proxy) : null;
+
                 accounts.push({
                     num: record.num,
                     add: record.add.toLowerCase(),
                     pk: record.pk || null,
-                    proxy: record.proxy || null,
+                    proxy: convertedProxy,
                     email: record.email || null,
                     twtoken: record.twtoken || null,
                     dctoken: record.dctoken || null,
@@ -121,6 +123,39 @@ const parseNumberExpression = (expression) => {
 
     return result;
 };
+
+function convertProxyFormat(proxyString) {
+    if (!proxyString) return null;
+
+    if (proxyString.includes('://') && proxyString.includes('@')) {
+        return proxyString; 
+    }
+    
+    const parts = proxyString.split(':');
+    
+    if (parts.length >= 4) {
+        const host = parts[0];
+        const port = parts[1];
+        const username = parts[2];
+        const password = parts[3];
+        
+        let protocol = 'http';
+        if (parts.length >= 5 && parts[4]) {
+            const protocolInput = parts[4].toLowerCase();
+            
+            // 处理各种可能的协议输入
+            if (protocolInput === 'socks' || protocolInput === 'socks5') {
+                protocol = 'socks';
+            } else if (protocolInput === 'http' || protocolInput === 'https') {
+                protocol = 'http';
+            } else {
+                protocol = 'http';
+            }
+        }
+        return `${protocol}://${username}:${password}@${host}:${port}`;
+    }
+    return proxyString;
+}
 
 export {
     loadAccounts
