@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
+import log from './logger.js';
 
 
 function createProxyAxios(proxy = null) {
@@ -18,7 +19,7 @@ function createProxyAxios(proxy = null) {
               httpAgent = new HttpsProxyAgent(proxy);
           }
       } catch (error) {
-          console.error('❌ 代理配置失败:', error);
+          log.system('代理配置失败:', log.COLORS.RED);
           throw error;
       }
   }
@@ -60,10 +61,10 @@ class XAuth {
         this.proxy = proxy;
         if (proxy) {
             this.http = createProxyAxios(proxy);
-            console.log(`🌐`);//XAuth初始化: 使用代理
+            log.system('XAuth初始化: 使用代理', log.COLORS.BLUE);
         } else {
             this.http = axios;
-            console.log(`⛔`);//XAuth初始化: 不使用代理
+            log.system('XAuth初始化: 不使用代理', log.COLORS.YELLOW);
         }
         this.csrfToken = null; // 添加一个实例变量存储CSRF token
         this.client = this._createAxiosInstance(true);
@@ -106,7 +107,6 @@ class XAuth {
         if (!csrfToken) return;
         
         this.csrfToken = csrfToken;
-        console.log(`更新CSRF Token: ${csrfToken.substring(0, 10)}...`);
         
         // 重新创建客户端以使用新的token
         this.client = this._createAxiosInstance(true);
@@ -124,7 +124,7 @@ class XAuth {
         }
 
         if (response.status === 429) {
-            console.log(`遇到请求频率限制(429)，等待${XAuth.RETRY_INTERVAL/1000}秒后重试...`);
+            log.system(`遇到请求频率限制(429)，等待${XAuth.RETRY_INTERVAL/1000}秒后重试...`, log.COLORS.YELLOW);
             await new Promise(resolve => setTimeout(resolve, XAuth.RETRY_INTERVAL));
             if (retryFunc) {
                 return await retryFunc();
@@ -138,7 +138,7 @@ class XAuth {
             throw new Error('oauth_token不能为空');
         }
 
-        console.log(`获取Twitter认证Token: ${oauthToken.substring(0, 10)}...`);
+        log.system(`获取Twitter认证Token: ${oauthToken.substring(0, 10)}...`, log.COLORS.BLUE);
         const response = await this.client2.get('https://api.x.com/oauth/authenticate', {
             params: { oauth_token: oauthToken }
         });
@@ -170,12 +170,12 @@ class XAuth {
             throw new Error('获取到的authenticity_token为空');
         }
 
-        console.log(`获取到认证Token: ${token.substring(0, 10)}...`);
+        log.system(`获取到认证Token: ${token.substring(0, 10)}...`, log.COLORS.GREEN);
         return token;
     }
 
     async oauth1(oauthToken) {
-        console.log(`开始OAuth1流程: ${oauthToken.substring(0, 10)}...`);
+        log.system(`开始OAuth1流程: ${oauthToken.substring(0, 10)}...`, log.COLORS.BLUE);
         const authenticityToken = await this.getTwitterToken(oauthToken);
 
         const data = new URLSearchParams({
@@ -183,7 +183,7 @@ class XAuth {
             oauth_token: oauthToken
         });
 
-        console.log(`发送OAuth1授权请求...`);
+        log.system(`发送OAuth1授权请求...`, log.COLORS.BLUE);
         const response = await this.client2.post('https://x.com/oauth/authorize', data);
         await this._handleResponse(response);
 
@@ -201,7 +201,7 @@ class XAuth {
             throw new Error('获取到的oauth_verifier为空');
         }
 
-        console.log(`OAuth1流程完成，获取验证码: ${verifier.substring(0, 10)}...`);
+        log.system(`OAuth1流程完成，获取验证码: ${verifier.substring(0, 10)}...`, log.COLORS.GREEN);
         return verifier;
     }
 
@@ -225,11 +225,11 @@ class XAuth {
 
         // 处理CSRF token
         if (data.code === 353) {
-            console.log(`需要更新CSRF`);
+            log.system(`需要更新CSRF`, log.COLORS.YELLOW);
             const ct0Cookie = response.headers['set-cookie']?.find(cookie => cookie.startsWith('ct0='));
             if (ct0Cookie) {
                 const ct0 = ct0Cookie.split(';')[0].split('=')[1];
-                console.log(`获取ct0`);
+                log.system(`获取ct0`, log.COLORS.BLUE);
                 
                 // 更新CSRF token并重新创建客户端
                 this._updateCsrfToken(ct0);
@@ -261,7 +261,7 @@ class XAuth {
             code: authCode
         });
     
-        console.log(`发送OAuth2授权请求...`);
+        log.system(`发送OAuth2授权请求...`, log.COLORS.BLUE);
         try {
             const response = await this.client.post(
                 `${XAuth.TWITTER_API_BASE}/oauth2/authorize`,
@@ -281,23 +281,18 @@ class XAuth {
     
             await this._handleResponse(response);
             
-            // 尝试获取重定向URL
             let redirectUrl = null;
             
-            // 从重定向头获取URL
             if (response.status === 302 && response.headers.location) {
                 redirectUrl = response.headers.location;
-                console.log(`从重定向头获取URL: ${redirectUrl.substring(0, 30)}...`);
+                log.system(`从重定向头获取URL: ${redirectUrl.substring(0, 30)}...`, log.COLORS.CYAN);
             } else {
-                // 尝试从响应中提取重定向URL
                 try {
-                    // 尝试解析JSON响应
                     const jsonResponse = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
                     if (jsonResponse.redirect_uri) {
                         redirectUrl = jsonResponse.redirect_uri;
                     }
                 } catch (e) {
-                    // 如果JSON解析失败，尝试从文本中提取
                     const responseText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
                     
                     const patterns = [
@@ -310,16 +305,15 @@ class XAuth {
                         const match = responseText.match(pattern);
                         if (match) {
                             redirectUrl = match[1];
-                            console.log(`使用模式提取到重定向URL: ${redirectUrl.substring(0, 30)}...`);
+                            log.system(`使用模式提取到重定向URL: ${redirectUrl.substring(0, 30)}...`, log.COLORS.CYAN);
                             break;
                         }
                     }
                 }
             }
             
-            // 如果找到了重定向URL，跟随它
             if (redirectUrl) {
-                console.log(`跟随重定向`);
+                log.system(`--跟随重定向--`, log.COLORS.GRAY);
                 
                 // 访问重定向URL
                 const redirectResponse = await this.client.get(redirectUrl, {
@@ -328,12 +322,12 @@ class XAuth {
                     timeout: 30000
                 });
                 
-                console.log(`重定向完成`);
+                log.system(`--重定向完成--`, log.COLORS.GRAY);
                 
                 // 如果重定向URL还有下一步重定向，继续跟随
                 if (redirectResponse.status === 302 && redirectResponse.headers.location) {
                     const finalRedirectUrl = redirectResponse.headers.location;
-                    console.log(`最终重定向`);
+                    log.system(`--最终重定向--`, log.COLORS.GRAY);
                     
                     try {
                         const finalResponse = await this.client.get(finalRedirectUrl, {
@@ -341,9 +335,9 @@ class XAuth {
                             timeout: 30000
                         });
                         
-                        console.log(`最终重定向URL访问完成`);
+                        log.system(`最终重定向URL访问完成`, log.COLORS.GREEN);
                     } catch (redirectError) {
-                        console.warn(`最终重定向访问出错: ${redirectError.message}`);
+                        log.system(`最终重定向访问出错: ${redirectError.message}`, log.COLORS.YELLOW);
                     }
                 }
             }
@@ -355,12 +349,12 @@ class XAuth {
                 status: 'success'
             };
         } catch (error) {
-            console.error(`OAuth2授权请求失败: ${error.message}`);
+            log.system(`OAuth2授权请求失败: ${error.message}`, log.COLORS.RED);
             
             // 检查是否是重定向错误，如果是，尝试跟随重定向
             if (error.response && error.response.status === 302 && error.response.headers.location) {
                 const redirectUrl = error.response.headers.location;
-                console.log(`从错误响应中获取重定向URL: ${redirectUrl.substring(0, 30)}...`);
+                log.system(`从错误响应中获取重定向URL: ${redirectUrl.substring(0, 30)}...`, log.COLORS.YELLOW);
             }
             
             return { 
@@ -374,35 +368,3 @@ class XAuth {
 }
 
 export default XAuth;
-
-//使用示例
-// async processTwitterAuth(authUrl, twitterAuth) {
-//     try {
-//     // 解析授权URL
-//     const url = new URL(authUrl);
-//     const params = Object.fromEntries(url.searchParams.entries());
-    
-//     console.log(`🔄 开始处理Twitter授权`);
-    
-//     // 使用XAuth执行完整的OAuth2授权流程，包括重定向
-//     const authResult = await twitterAuth.oauth2(params);
-    
-//     if (!authResult) {
-//         console.error('❌ Twitter授权失败，未收到响应');
-//         return null;
-//     }
-    
-//     const { authCode, redirectUrl, completed, status, error } = authResult;
-    
-//     if (error) {
-//         console.warn(`⚠️ 授权过程中遇到警告: ${error}`);
-//     }
-    
-//     console.log(`🔄 Twitter授权状态: ${status}, 完成: ${completed ? '是' : '否'}`);
-    
-//     return authCode;
-//     } catch (error) {
-//     console.error('❌ 处理Twitter授权时出错:', error.message);
-//     return null;
-//     }
-// }
