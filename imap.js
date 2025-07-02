@@ -2,7 +2,7 @@ import Imap from 'node-imap';
 import { simpleParser } from 'mailparser';
 import moment from 'moment';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-
+import log from './logger.js';
 
 class EmailReader {
     constructor(config) {
@@ -58,7 +58,7 @@ class EmailReader {
             this.imap.once('error', (err) => {
                 reject(new Error(`连接邮箱服务器失败: ${err.message}`));
             });
-            this.imap.once('end', () => console.log('邮箱连接已断开'));
+            this.imap.once('end', () => log.system('邮箱连接已断开', log.COLORS.GRAY));
             this.imap.connect();
         });
     }
@@ -73,10 +73,10 @@ class EmailReader {
         return new Promise((resolve, reject) => {
             this.imap.openBox(folder, false, (err, box) => {
                 if (err) {
-                    console.error(`[文件夹错误] 无法打开 ${folder}:`, err.message);
+                    log.system(`无法打开 ${folder}: ${err.message}`, log.COLORS.RED);
                     reject(new Error(`打开文件夹失败: ${folder}`));
                 } else {
-                    console.log(`成功打开文件夹: ${folder}`);
+                    log.system(`成功打开文件夹: ${folder}`, log.COLORS.GREEN);
                     resolve(box);
                 }
             });
@@ -93,13 +93,13 @@ class EmailReader {
             [['SINCE', formattedDate]], // 使用嵌套数组
             (err, results) => {
                 if (err) {
-                console.error('[搜索失败]', err.message);
+                log.system(`搜索失败: ${err.message}`, log.COLORS.RED);
                 reject(err);
                 return;
                 }
 
                 const limitedResults = results.slice(0, 10);
-                console.log(`处理前10封邮件（共${results.length}封符合条件）`);
+                log.system(`处理前10封邮件（共${results.length}封符合条件）`, log.COLORS.BLUE);
                 this.fetchMessages(limitedResults).then(resolve).catch(reject);
             }
           );
@@ -111,12 +111,12 @@ class EmailReader {
             const tenMinutesAgo = moment.utc().subtract(this.timeConfig.timeWindow, 'minutes');
             const isRecent = emailTime.isAfter(tenMinutesAgo);
             
-            console.log(`[时间检查] 邮件时间: ${emailTime.format('YYYY-MM-DD HH:mm:ss')} UTC`);
-            console.log(`[时间检查] 是否在${this.timeConfig.timeWindow}分钟内: ${isRecent}`);
+            log.system(`邮件时间: ${emailTime.format('YYYY-MM-DD HH:mm:ss')} UTC`, log.COLORS.GRAY);
+            log.system(`是否在${this.timeConfig.timeWindow}分钟内: ${isRecent}`, log.COLORS.GRAY);
             
             return isRecent;
         } catch (error) {
-            console.log('[时间检查] 错误:', error.message);
+            log.system(`时间检查错误: ${error.message}`, log.COLORS.RED);
             return false;
         }
     }
@@ -132,35 +132,35 @@ class EmailReader {
     
             let msgCount = 0;
             fetch.on('message', (msg, seqno) => {
-                console.log(`正在处理第 ${seqno} 封邮件`);
+                log.system(`正在处理第 ${seqno} 封邮件`, log.COLORS.BLUE);
                 
                 msg.on('body', (stream) => {
                     simpleParser(stream)
                         .then((parsed) => {
                             messages.push(parsed);
-                            console.log(`第 ${seqno} 封邮件解析成功`);
+                            log.system(`第 ${seqno} 封邮件解析成功`, log.COLORS.GREEN);
                             msgCount++;
                             // 所有消息都处理完成后才resolve
                             if (msgCount === results.length) {
-                                console.log(`完成处理 ${messages.length} 封邮件`);
+                                log.system(`完成处理 ${messages.length} 封邮件`, log.COLORS.GREEN);
                                 resolve(messages);
                             }
                         })
                         .catch(err => {
-                            console.error(`解析第 ${seqno} 封邮件时出错:`, err);
+                            log.system(`解析第 ${seqno} 封邮件时出错: ${err}`, log.COLORS.RED);
                             reject(err);
                         });
                 });
             });
     
             fetch.once('error', (err) => {
-                console.error('获取邮件出错:', err);
+                log.system(`获取邮件出错: ${err}`, log.COLORS.RED);
                 reject(err);
             });
     
             // 移除这里的end事件处理
             fetch.once('end', () => {
-                console.log('邮件获取完成，等待解析...');
+                log.system('邮件获取完成，等待解析...', log.COLORS.GRAY);
             });
         });
     }
@@ -178,12 +178,12 @@ class EmailReader {
         // 优先检查纯文本内容（英文邮件通常在这里）
         if (message.text) {
             const cleanText = preprocessText(message.text);
-            console.log('[调试] 纯文本内容:', cleanText); // 调试日志
+            log.system('纯文本内容: ' + cleanText.substring(0, 100) + '...', log.COLORS.GRAY); // 调试日志
             
             // 新增：直接搜索6位数字（更宽松的匹配）
             const looseMatch = cleanText.match(/\b\d{6}\b/);
             if (looseMatch) {
-                console.log('[宽松匹配] 找到6位数字:', looseMatch[0]);
+                log.system(`宽松匹配找到6位数字: ${looseMatch[0]}`, log.COLORS.GREEN);
                 return looseMatch[0];
             }
         }
@@ -211,7 +211,7 @@ class EmailReader {
                 
                 while ((match = linkPattern.exec(html)) !== null) {
                     const url = match[2];
-                    // console.log('[解析链接]', url); // 调试日志
+                    // log.system('解析链接: ' + url, log.COLORS.GRAY); // 调试日志
                     
                     // 匹配含confirmation_token的URL
                     const tokenMatch = url.match(/(?:confirmation_token|token)=([^&]+)/i);
@@ -226,7 +226,7 @@ class EmailReader {
             if (message.html) {
                 const linkToken = extractFromLinks(message.html);
                 if (linkToken && this.validateCode(linkToken)) {
-                    console.log('[从链接提取成功]', linkToken);
+                    log.system(`从链接提取成功: ${linkToken}`, log.COLORS.GREEN);
                     return linkToken;
                 }
             }
@@ -236,7 +236,7 @@ class EmailReader {
                 for (const pattern of patterns) {
                     const match = text.match(pattern);
                     if (match && match[1]) {
-                        console.log('[正则匹配] 模式:', pattern.toString(), '结果:', match[1]);
+                        log.system(`正则匹配 模式: ${pattern.toString()} 结果: ${match[1]}`, log.COLORS.CYAN);
                         return decodeToken(match[1]);
                     }
                 }
@@ -257,7 +257,7 @@ class EmailReader {
     
             return null;
         } catch (error) {
-            console.log('[Token提取] 错误:', error.message);
+            log.system(`Token提取错误: ${error.message}`, log.COLORS.RED);
             return null;
         }
     }
@@ -274,7 +274,7 @@ class EmailReader {
                 const inboxMessages = await this.getRecentEmails();
                 codes.push(...this.processMessages(inboxMessages, 'INBOX'));
             } catch (inboxErr) {
-                console.error('[收件箱检查失败]', inboxErr.message);
+                log.system(`收件箱检查失败: ${inboxErr.message}`, log.COLORS.RED);
             }
 
             // 第二步：如果收件箱未找到，检查所有可能的垃圾箱
@@ -285,12 +285,12 @@ class EmailReader {
                         const spamMessages = await this.getRecentEmails();
                         const spamCodes = this.processMessages(spamMessages, folderName);
                         if (spamCodes.length > 0) {
-                            console.warn(`[安全警告] 在垃圾箱 ${folderName} 中发现验证码`);
+                            log.system(`在垃圾箱 ${folderName} 中发现验证码`, log.COLORS.YELLOW);
                             codes.push(...spamCodes);
                             break; // 找到后停止检查其他垃圾箱
                         }
                     } catch (spamErr) {
-                        console.error(`[垃圾箱检查失败] ${folderName}:`, spamErr.message);
+                        log.system(`垃圾箱检查失败 ${folderName}: ${spamErr.message}`, log.COLORS.RED);
                     }
                 }
             }
@@ -299,24 +299,24 @@ class EmailReader {
             
             // 结果处理（保持原有日志格式）
             if (codes.length > 0) {
-                console.log('\n[验证码列表]');
+                log.system('验证码列表', log.COLORS.GREEN);
                 codes.forEach(vc => {
-                    console.log(`验证码: ${vc.code}`);
-                    console.log(`来源: ${vc.folder}`);
-                    console.log(`发件人: ${vc.from}`);
-                    console.log('-------------------');
+                    log.system(`验证码: ${vc.code}`, log.COLORS.GREEN);
+                    log.system(`来源: ${vc.folder}`, log.COLORS.BLUE);
+                    log.system(`发件人: ${vc.from}`, log.COLORS.BLUE);
+                    log.system('-------------------', log.COLORS.GRAY);
                 });
             } else {
-                console.log('[结果] 未找到验证码');
+                log.system('未找到验证码', log.COLORS.YELLOW);
             }
 
             return codes;
         } catch (error) {
-            console.error('[全局错误]', error.message);
+            log.system(`全局错误: ${error.message}`, log.COLORS.RED);
             try {
                 await this.disconnect();
             } catch (e) {
-                console.error('[断开连接异常]', e.message);
+                log.system(`断开连接异常: ${e.message}`, log.COLORS.RED);
             }
             return [];
         }
@@ -447,7 +447,7 @@ async function getEmailCode(credential, proxy = null) {
         
         return null;
     } catch (error) {
-        console.error('[邮箱验证码获取失败]', error.message);
+        log.system(`邮箱验证码获取失败: ${error.message}`, log.COLORS.RED);
         return null;
     }
 }
