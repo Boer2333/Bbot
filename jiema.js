@@ -3,9 +3,91 @@ import { getRandomUserAgent } from './http.js';
 import log from './logger.js';
 
 const apiKey = ''; //2captcha key   注册链接：https://2captcha.com/enterpage
-const clientKey = ''; //YesCaptcha key    注册链接：https://yescaptcha.com/i/tMUjif
+const clientKey = ''; //YesCaptcha key    注册链接：https://yescaptcha.com/i/UGjmQ8
 const noCaptchaKey = ''; // NoCaptcha key，  注册链接：https://www.nocaptcha.io/register?c=b34WtG
 const moonKey = '';  //1Captcha key    注册链接：https://1captcha.vip/user/register?cps=NFSNS7hl
+
+const selfHostedApiUrl = 'http://192.168.0.114:3000'; // 请替换为您的自建服务地址
+
+async function solveWithSelfHosted(proxy, pageUrl, options = {}) {
+    const {
+        type = 'cftoken', // 默认使用 cfcookie 类型
+        siteKey = ''
+    } = options;
+
+    if (!selfHostedApiUrl) {
+        throw new Error('selfHostedApiUrl 未定义，请提供有效的API地址');
+    }
+
+    log.system('开始创建自建解码任务...', log.COLORS.BLUE);
+
+    // 根据不同类型配置任务参数
+    const taskConfigs = {
+        'cfcookie': {
+            type: "cfcookie",
+            websiteUrl: pageUrl
+        },
+        // Turnstile token
+        'cftoken': {
+            type: "cftoken",
+            websiteUrl: pageUrl,
+            websiteKey: siteKey
+        }
+    };
+
+    const taskConfig = taskConfigs[type];
+    if (!taskConfig) {
+        throw new Error(`不支持的验证码类型: ${type}`);
+    }
+
+    // 添加代理配置（如果提供）
+    if (proxy) {
+        const proxyConfig = parseProxyToObject(proxy);
+        if (proxyConfig) {
+            taskConfig.proxy = proxyConfig;
+        }
+    }
+
+    const headers = {
+        'Content-Type': 'application/json'
+    };
+
+    try {
+        log.system(`开始解码 ${type}...`, log.COLORS.GRAY);
+        log.system(`请求参数: ${JSON.stringify(taskConfig, null, 2)}`, log.COLORS.GRAY);
+        
+        const response = await axios.post(`${selfHostedApiUrl}/`, taskConfig, { 
+            headers,
+            timeout: 3000 
+        });
+
+        const result = response.data;
+
+        if (result.code === 200) {
+            // 根据不同类型返回对应的结果
+            if (type === 'cfcookie') {
+                if (!result.cf_clearance) {
+                    throw new Error('无解码cf_clearance');
+                }
+                log.system('cf_clearance 获取成功', log.COLORS.GREEN);
+                return result
+            } else {
+                if (!result.token) {
+                    throw new Error(`无解码${type} token`);
+                }
+                log.system(`${type} 成功获取token`, log.COLORS.GREEN);
+                return result
+            }
+        } else {
+            throw new Error(`自建服务错误: ${result.message || JSON.stringify(result)}`);
+        }
+
+    } catch (error) {
+        log.system(`自建服务解码失败: ${error}`, log.COLORS.RED);
+        throw error;
+    }
+}
+
 
 async function solveWith1Captcha(proxy, pageUrl, options = {}) {
     const {
